@@ -108,13 +108,24 @@ void pchar(char c, uint16_t x, uint16_t y) {
     }
 }
 
+static void incr_coordinates(uint16_t* curr_x, uint16_t* curr_y) {
+    *curr_x += WIDTH_IN_BITS + SPACING;
+    if(*curr_x >= framebuffer->width) {
+        *curr_y += BYTES_PER_GLYPH + SPACING;
+        *curr_x = 0;
+    }
+    if(*curr_y >= framebuffer->height) {
+        *curr_y -= BYTES_PER_GLYPH + SPACING;
+    }
+}
+
 void kprint(char* str) {
     static uint16_t curr_x = 0;
     static uint16_t curr_y = 0;    
 
     while(*str) {
         pchar(*str, curr_x, curr_y);
-        curr_x += WIDTH_IN_BITS + SPACING;
+        incr_coordinates(&curr_x, &curr_y);
         str++;
     }
 }

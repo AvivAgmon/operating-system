@@ -36,7 +36,7 @@ void kmain(void) {
     idt_init();
     pit_init();
     init_keyboard();
-    //__asm__ volatile ("div %0" :: "r"(0));
+    // __asm__ volatile ("div %0" :: "r"(0));
     pmm_init();
     paging_init();
     serial_log("paging done!\n");
@@ -49,6 +49,8 @@ void kmain(void) {
 
     kfree(b);
     kfree(a);
+
+    kprint("booting done ");
 
     // We're done, just hang...
     hcf();

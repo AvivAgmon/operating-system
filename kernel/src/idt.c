@@ -2,17 +2,19 @@
 #include "util.h"
 #include "limine.h"
 #include "serial.h"
+#include "print.h"
 
-extern uint64_t* isr_stub_table[];
-extern uint64_t* irq_stub_table[];
+extern uint64_t *isr_stub_table[];
+extern uint64_t *irq_stub_table[];
 
 static IdtEntry idt[256] __attribute__((aligned(0x10))) = {0}; // Create an array of IDT entries; aligned for performance
 static Idtr idtr;
 bool vectors[256] = {0};
 
-static void* irq_routines[256] = {0};
+static void *irq_routines[256] = {0};
 
-static void print_regs(Regs* regs) {
+static void print_regs(Regs *regs)
+{
     serial_log("r15: ");
     serial_log_num_unsigned(regs->r15);
     serial_log("\n");
@@ -98,8 +100,9 @@ static void print_regs(Regs* regs) {
     serial_log("\n");
 }
 
-void exception_handler(Regs* regs) {
-    static char* exception_messages[] = {
+void exception_handler(Regs *regs)
+{
+    static char *exception_messages[] = {
         "division by zero",
         "debug",
         "non maskable interrupt",
@@ -135,23 +138,25 @@ void exception_handler(Regs* regs) {
     };
     serial_log("excpetion! system halted\n");
     print_regs(regs);
-    
-    if(regs->vector_number < 32) {
+
+    if (regs->vector_number < 32)
+    {
         serial_log(exception_messages[regs->vector_number]);
     }
     hcf();
 }
 
-void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
-    IdtEntry* descriptor = &idt[vector];
+void idt_set_descriptor(uint8_t vector, void *isr, uint8_t flags)
+{
+    IdtEntry *descriptor = &idt[vector];
 
-    descriptor->isr_low        = (uint64_t)isr & 0xFFFF;
-    descriptor->kernel_cs      = 0x28; // fuckass number cost me a week
-    descriptor->ist            = 0;
-    descriptor->attributes     = flags;
-    descriptor->isr_mid        = ((uint64_t)isr >> 16) & 0xFFFF;
-    descriptor->isr_high       = ((uint64_t)isr >> 32) & 0xFFFFFFFF;
-    descriptor->reserved       = 0;
+    descriptor->isr_low = (uint64_t)isr & 0xFFFF;
+    descriptor->kernel_cs = 0x28; // fuckass number cost me a week
+    descriptor->ist = 0;
+    descriptor->attributes = flags;
+    descriptor->isr_mid = ((uint64_t)isr >> 16) & 0xFFFF;
+    descriptor->isr_high = ((uint64_t)isr >> 32) & 0xFFFFFFFF;
+    descriptor->reserved = 0;
 }
 
 #define MASTER_CMD 0x20
@@ -159,7 +164,8 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 #define SLAVE_CMD 0xA0
 #define SLAVE_DATA 0xA1
 
-static void pic8259_remap() {
+static void pic8259_remap()
+{
     outb(MASTER_CMD, 0x11);
     outb(SLAVE_CMD, 0x11);
     outb(MASTER_DATA, 0x20);
@@ -172,39 +178,47 @@ static void pic8259_remap() {
     outb(SLAVE_DATA, 0x0);
 }
 
-void idt_init() {
+void idt_init()
+{
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(IdtEntry) * 256;
 
-    for (uint8_t vector = 0; vector < 32; vector++) {
+    for (uint8_t vector = 0; vector < 32; vector++)
+    {
         idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
         vectors[vector] = true;
     }
-    for (uint16_t vector = 32; vector < 256; vector++) {
+    for (uint16_t vector = 32; vector < 256; vector++)
+    {
         idt_set_descriptor(vector, irq_stub_table[vector], 0x8E);
         vectors[vector] = true;
     }
     pic8259_remap();
 
-    __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
-    __asm__ volatile ("sti"); // set the interrupt flag
+    __asm__ volatile("lidt %0" : : "m"(idtr)); // load the new IDT
+    __asm__ volatile("sti");                   // set the interrupt flag
 }
 
-void irq_install_handler(uint8_t irq, void (*handler)(Regs* regs)) {
+void irq_install_handler(uint8_t irq, void (*handler)(Regs *regs))
+{
     irq_routines[irq] = handler;
 }
 
-void irq_uninstall_handler(uint8_t irq) {
+void irq_uninstall_handler(uint8_t irq)
+{
     irq_routines[irq] = 0;
 }
 
-void irq_handler(Regs* regs) {
-    void (*handler)(Regs* regs) = irq_routines[regs->vector_number-32];
-    if(handler) {
+void irq_handler(Regs *regs)
+{
+    void (*handler)(Regs *regs) = irq_routines[regs->vector_number - 32];
+    if (handler)
+    {
         handler(regs);
     }
 
-    if(regs->vector_number-32 >= 40) {
+    if (regs->vector_number - 32 >= 40)
+    {
         outb(0xA0, 0x20);
     }
     outb(0x20, 0x20);

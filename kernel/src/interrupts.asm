@@ -97,7 +97,7 @@ isr_stub_table:
 
 ; irq's definition
 %assign i 32
-%rep 223
+%rep 224
 irq_%+i:
     cli
     push 0
@@ -109,7 +109,7 @@ irq_%+i:
 global irq_stub_table
 irq_stub_table:
 %assign i 32
-%rep 223
+%rep 224
     dq irq_%+i
     %assign i i+1
 %endrep

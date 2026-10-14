@@ -2,7 +2,7 @@
 #include "util.h"
 #include "limine.h"
 #include "serial.h"
-#include "print.h"
+#include "print/print.h"
 
 extern uint64_t *isr_stub_table[];
 extern uint64_t *irq_stub_table[];
@@ -178,19 +178,22 @@ static void pic8259_remap()
     outb(SLAVE_DATA, 0x0);
 }
 
+#define IDT_ENTRIES_LEN 256
+#define RESERVED_ENTRIES_EXCEPTIONS 32
+#define INTERRUPT_GATE 0x8E
 void idt_init()
 {
     idtr.base = (uintptr_t)&idt[0];
-    idtr.limit = (uint16_t)sizeof(IdtEntry) * 256;
+    idtr.limit = (uint16_t)sizeof(IdtEntry) * IDT_ENTRIES_LEN - 1;
 
-    for (uint8_t vector = 0; vector < 32; vector++)
+    for (uint8_t vector = 0; vector < RESERVED_ENTRIES_EXCEPTIONS; vector++)
     {
-        idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
+        idt_set_descriptor(vector, isr_stub_table[vector], INTERRUPT_GATE);
         vectors[vector] = true;
     }
-    for (uint16_t vector = 32; vector < 256; vector++)
+    for (uint16_t vector = RESERVED_ENTRIES_EXCEPTIONS; vector < IDT_ENTRIES_LEN; vector++)
     {
-        idt_set_descriptor(vector, irq_stub_table[vector], 0x8E);
+        idt_set_descriptor(vector, irq_stub_table[vector - RESERVED_ENTRIES_EXCEPTIONS], INTERRUPT_GATE);
         vectors[vector] = true;
     }
     pic8259_remap();
@@ -211,13 +214,14 @@ void irq_uninstall_handler(uint8_t irq)
 
 void irq_handler(Regs *regs)
 {
-    void (*handler)(Regs *regs) = irq_routines[regs->vector_number - 32];
+    void (*handler)(Regs *regs) = irq_routines[regs->vector_number - RESERVED_ENTRIES_EXCEPTIONS];
     if (handler)
     {
         handler(regs);
     }
 
-    if (regs->vector_number - 32 >= 40)
+    // todo: find out what this does
+    if (regs->vector_number - RESERVED_ENTRIES_EXCEPTIONS >= 40)
     {
         outb(0xA0, 0x20);
     }

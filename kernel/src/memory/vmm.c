@@ -62,20 +62,32 @@ static inline uint64_t get_cr3(void)
 static uint64_t HHDM_OFFSET;
 static uint64_t KERNEL_VIRT_BASE;
 
+#define PML1_OFFSET 12
+#define PML2_OFFSET 21
+#define PML3_OFFSET 30
+#define PML4_OFFSET 39
+
+#define ONLY_KEEP_FIRST_9_BITS 0x1FF
 static inline PagingIndex compute_indices(uint64_t vaddr)
 {
 	PagingIndex p = {
-		.pml4 = (vaddr >> 39) & 0x1FF,
-		.pml3 = (vaddr >> 30) & 0x1FF,
-		.pml2 = (vaddr >> 21) & 0x1FF,
-		.pml1 = (vaddr >> 12) & 0x1FF,
+		.pml4 = (vaddr >> PML4_OFFSET) & ONLY_KEEP_FIRST_9_BITS,
+		.pml3 = (vaddr >> PML3_OFFSET) & ONLY_KEEP_FIRST_9_BITS,
+		.pml2 = (vaddr >> PML2_OFFSET) & ONLY_KEEP_FIRST_9_BITS,
+		.pml1 = (vaddr >> PML1_OFFSET) & ONLY_KEEP_FIRST_9_BITS,
 	};
 	return p;
 }
 
+#define VADDR_FIRST_OFFSET 0xFFF
 static inline uint64_t compute_vaddr(PagingIndex p, uint64_t offset)
 {
-	return ((p.pml4 << 39) | (p.pml3 << 30) | (p.pml2 << 21) | (p.pml1 << 12) | (offset & 0xFFF)); // todo
+	return (
+		(p.pml4 << PML4_OFFSET) |
+		(p.pml3 << PML3_OFFSET) |
+		(p.pml2 << PML2_OFFSET) |
+		(p.pml1 << PML1_OFFSET) |
+		(offset & VADDR_FIRST_OFFSET)); // todo
 }
 
 // returns true if theres no index overflow
@@ -222,7 +234,7 @@ static void unmap_page(uint64_t vaddr)
 
 static uint64_t find_free_vpages(uint64_t pages_amt)
 {
-	uint64_t start = 0x1000;
+	uint64_t start = PAGE_SIZE;
 	uint64_t pages_found = 0;
 	for (uint64_t p4_i = 0; p4_i < PML4_AMT; p4_i++)
 	{
@@ -233,10 +245,7 @@ static uint64_t find_free_vpages(uint64_t pages_amt)
 			{
 				return start;
 			}
-			else
-			{
-				continue;
-			}
+			continue;
 		}
 		uint64_t *pml3 = access_table(pml4, p4_i);
 
@@ -528,6 +537,7 @@ void kfree(void *addr)
 	MemTracker *tracker = ((MemTracker *)addr) - 1;
 	if (tracker->addr != addr)
 	{
+		serial_log("error!");
 		// todo
 		hcf();
 	}

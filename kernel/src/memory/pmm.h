@@ -4,6 +4,6 @@
 
 void pmm_free(uint64_t page);
 
-uint64_t pmm_alloc();
+uint64_t pmm_alloc(void);
 
-void pmm_init();
+void pmm_init(void);

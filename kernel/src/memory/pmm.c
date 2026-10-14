@@ -75,6 +75,7 @@ static inline void pmm_clear_bit(uint64_t addr)
 	phys_mem_bitmap[p.index] = byte;
 }
 
+#define BIT_LEN 63
 static inline void incr_ptr(PmmPtr *ptr)
 {
 	if (!ptr)
@@ -82,7 +83,7 @@ static inline void incr_ptr(PmmPtr *ptr)
 		return;
 	}
 	ptr->bit++;
-	if (ptr->bit > 63)
+	if (ptr->bit > BIT_LEN)
 	{
 		ptr->index++;
 		ptr->bit = 0;
